@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CenterCircle 7 — Team Word Showdown</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    .hex-tile {
+      transition: transform 0.14s ease, box-shadow 0.14s ease, background-color 0.14s ease;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .hex-tile:active { transform: scale(0.93); }
+    @keyframes pulse-ring {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55); }
+      50% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+    }
+    .center-ring-pulse { animation: pulse-ring 2.2s infinite; }
+    @keyframes pop-in {
+      0% { opacity: 0; transform: translateY(6px) scale(0.96); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .pop-in { animation: pop-in 0.22s ease-out; }
+    .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-xs w-full pointer-events-none"></div>
+
+  <!-- Top Navigation / Status Bar -->
+  <header class="border-b border-slate-800/80 bg-slate-900/90 backdrop-blur sticky top-0 z-30">
+    <div class="max-w-6xl mx-auto px-3 sm:px-6 h-14 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="w-8 h-8 rounded-full bg-amber-400 text-slate-950 font-black flex items-center justify-center text-sm ring-2 ring-amber-300/60 shrink-0">7</div>
+        <div class="truncate">
+          <span class="font-extrabold tracking-tight text-white text-base sm:text-lg">CenterCircle</span>
+          <span class="hidden sm:inline text-xs text-slate-400 ml-2 font-medium">2-Team Word Relay</span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 shrink-0">
+        <span id="connectionBadge" class="hidden text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700"></span>
+        <button id="rulesBtn" type="button" class="text-xs sm:text-sm font-medium px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition">Rules</button>
+        <button id="muteBtn" type="button" class="text-xs sm:text-sm font-medium px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition" title="Toggle Sound">🔊 Sound</button>
+        <button id="leaveBtn" type="button" class="hidden text-xs sm:text-sm font-medium px-2.5 py-1.5 rounded-lg bg-rose-950/70 hover:bg-rose-900 text-rose-200 border border-rose-800/60 transition">Exit</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main App Container -->
+  <main class="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 py-5 sm:py-8">
+
+    <!-- ==================== VIEW 1: LANDING ==================== -->
+    <section id="landingView" class="max-w-4xl mx-auto space-y-6">
+      <div class="text-center space-y-3 py-2">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-400/30 text-amber-300 text-xs font-semibold">
+          <span>13+ Players Per Team</span>
+          <span>•</span>
+          <span>15s Turn Timer</span>
+          <span>•</span>
+          <span>Circled Center Letter</span>
+        </div>
+        <h1 class="text-3xl sm:text-5xl font-black tracking-tight text-white">
+          7 Letters. 1 Mandatory Center.
+        </h1>
+        <p class="text-slate-400 max-w-2xl mx-auto text-sm sm:text-base">
+          Two teams of 13+ participants join from their own devices. Turns alternate team-by-team and rotate to a different player every 15 seconds. Repeat any of the 7 letters to build 3+ letter words!
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Host Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4 hover:border-amber-500/50 transition">
+          <div class="space-y-2">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center text-xl font-bold">🎙️</div>
+            <h2 class="text-lg font-bold text-white">Host a Room</h2>
+            <p class="text-xs sm:text-sm text-slate-400">Open the main projector screen, get a QR code &amp; room code for both teams, and start when everyone joins.</p>
+          </div>
+          <button id="createHostBtn" type="button" class="w-full py-2.5 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-sm transition">
+            Create Host Lobby
+          </button>
+        </div>
+
+        <!-- Join Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4 hover:border-sky-500/50 transition">
+          <div class="space-y-3">
+            <div class="w-10 h-10 rounded-xl bg-sky-500/15 text-sky-400 flex items-center justify-center text-xl font-bold">📱</div>
+            <h2 class="text-lg font-bold text-white">Join as Player</h2>
+            <div class="space-y-2">
+              <input id="joinNameInput" type="text" maxlength="20" placeholder="Your Name (e.g. Aarav)" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-400" />
+              <input id="joinCodeInput" type="text" maxlength="8" placeholder="Room Code (e.g. CW482)" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white uppercase tracking-wider placeholder-slate-500 focus:outline-none focus:border-sky-400" />
+              <div class="grid grid-cols-2 gap-2">
+                <button type="button" data-join-team="1" class="join-team-btn py-2 rounded-lg text-xs font-bold border border-sky-500 bg-sky-500/20 text-sky-200 transition">Team 1</button>
+                <button type="button" data-join-team="2" class="join-team-btn py-2 rounded-lg text-xs font-bold border border-slate-700 bg-slate-950 text-slate-400 hover:text-white transition">Team 2</button>
+              </div>
+            </div>
+          </div>
+          <button id="joinRoomBtn" type="button" class="w-full py-2.5 px-4 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-sm transition">
+            Join Team
+          </button>
+        </div>
+
+        <!-- Quick Classroom Demo Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4 hover:border-emerald-500/50 transition">
+          <div class="space-y-2">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center text-xl font-bold">⚡</div>
+            <h2 class="text-lg font-bold text-white">Instant 26-Player Demo</h2>
+            <p class="text-xs sm:text-sm text-slate-400">Test or run a full game immediately on one screen with 13 players on Team 1 and 13 players on Team 2.</p>
+          </div>
+          <button id="quickDemoBtn" type="button" class="w-full py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm transition">
+            Launch 13v13 Demo
+          </button>
+        </div>
+      </div>
+
+      <!-- Scoring Summary Strip -->
+      <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+        <div class="p-2">
+          <div class="text-xs text-slate-400">Minimum Word</div>
+          <div class="text-base font-bold text-white">3 Letters</div>
+        </div>
+        <div class="p-2">
+          <div class="text-xs text-slate-400">3–5 Letter Word</div>
+          <div class="text-base font-bold text-emerald-400">1 Point</div>
+        </div>
+        <div class="p-2">
+          <div class="text-xs text-slate-400">6+ Letter Word</div>
+          <div class="text-base font-bold text-amber-400">+1 Pt / Extra Letter</div>
+        </div>
+        <div class="p-2">
+          <div class="text-xs text-slate-400">Turn Clock</div>
+          <div class="text-base font-bold text-rose-400">15 Seconds</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 2: HOST LOBBY ==================== -->
+    <section id="lobbyView" class="hidden space-y-6">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
+        <div class="space-y-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30">Host Lobby</span>
+            <span id="hostNetStatus" class="text-xs text-slate-400">Initializing room...</span>
+          </div>
+          <div class="flex flex-wrap items-baseline gap-3">
+            <span class="text-sm text-slate-400">Room Code:</span>
+            <span id="lobbyRoomCode" class="text-3xl font-black tracking-widest text-white">-----</span>
+            <button id="copyRoomLinkBtn" type="button" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 transition">Copy Join Link</button>
+          </div>
+          <p class="text-xs text-slate-400">Participants scan the QR code or enter the room code on their device to join Team 1 or Team 2.</p>
+        </div>
+
+        <div class="flex items-center gap-4 self-center lg:self-auto">
+          <div id="qrBox" class="bg-white p-2 rounded-xl shrink-0"></div>
+          <div class="space-y-2">
+            <button id="fill13Btn" type="button" class="w-full text-xs font-semibold px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">+ Fill to 13/Team (Test)</button>
+            <button id="startGameBtn" type="button" class="w-full text-sm font-extrabold px-5 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 transition shadow-lg shadow-amber-500/10">Start Game →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Host Settings -->
+      <div class="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Team 1 Name</label>
+          <input id="team1NameInput" type="text" value="Team 1" maxlength="20" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Team 2 Name</label>
+          <input id="team2NameInput" type="text" value="Team 2" maxlength="20" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Turn Timer (sec)</label>
+          <input id="timerSettingInput" type="number" min="5" max="60" value="15" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Dictionary Mode</label>
+          <select id="dictModeSelect" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white">
+            <option value="auto">Auto (Online + Built-in)</option>
+            <option value="host">Host Approves Words</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Team Rosters -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-slate-900 border border-sky-500/30 rounded-2xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 id="lobbyTeam1Title" class="font-bold text-sky-300 text-base">Team 1</h3>
+            <span id="lobbyTeam1Count" class="text-xs font-bold px-2.5 py-1 rounded-full bg-sky-500/15 text-sky-300">0 / 13+</span>
+          </div>
+          <div id="lobbyTeam1List" class="flex flex-wrap gap-2 max-h-56 overflow-y-auto custom-scroll"></div>
+        </div>
+
+        <div class="bg-slate-900 border border-violet-500/30 rounded-2xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 id="lobbyTeam2Title" class="font-bold text-violet-300 text-base">Team 2</h3>
+            <span id="lobbyTeam2Count" class="text-xs font-bold px-2.5 py-1 rounded-full bg-violet-500/15 text-violet-300">0 / 13+</span>
+          </div>
+          <div id="lobbyTeam2List" class="flex flex-wrap gap-2 max-h-56 overflow-y-auto custom-scroll"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 3: PLAYER WAITING LOBBY ==================== -->
+    <section id="playerWaitView" class="hidden max-w-lg mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center space-y-4">
+      <div class="w-14 h-14 mx-auto rounded-full bg-sky-500/15 text-sky-400 flex items-center justify-center text-2xl font-black">✓</div>
+      <h2 class="text-xl font-bold text-white">You're in! Waiting for Host…</h2>
+      <p id="playerWaitInfo" class="text-sm text-slate-400"></p>
+      <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-xs text-slate-400 space-y-1 text-left">
+        <div>• Watch the 7 letters appear when the host starts.</div>
+        <div>• The <span class="text-amber-300 font-semibold">circled middle letter</span> is mandatory in every word.</div>
+        <div>• When it's your turn, you have <span class="text-rose-300 font-semibold">15 seconds</span> to submit a 3+ letter word.</div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 4: ACTIVE GAME ARENA ==================== -->
+    <section id="gameView" class="hidden space-y-5">
+      <!-- Scoreboard Header -->
+      <div class="grid grid-cols-3 gap-3 items-stretch">
+        <div id="scoreCard1" class="bg-slate-900 border-2 border-sky-500/40 rounded-2xl p-3 sm:p-4 flex flex-col justify-between transition">
+          <div class="flex items-center justify-between gap-1">
+            <span id="gameTeam1Name" class="font-bold text-sky-300 text-xs sm:text-sm truncate">Team 1</span>
+            <span id="gameTeam1Badge" class="hidden text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-sky-400 text-slate-950">Turn</span>
+          </div>
+          <div id="gameTeam1Score" class="text-2xl sm:text-4xl font-black text-white mt-1">0</div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 sm:p-4 flex flex-col items-center justify-center text-center">
+          <div class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Time Left</div>
+          <div id="timerDisplay" class="text-3xl sm:text-4xl font-black text-emerald-400 tabular-nums mt-0.5">15s</div>
+          <div class="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+            <div id="timerBar" class="bg-emerald-400 h-full transition-all duration-300" style="width: 100%"></div>
+          </div>
+        </div>
+
+        <div id="scoreCard2" class="bg-slate-900 border-2 border-violet-500/40 rounded-2xl p-3 sm:p-4 flex flex-col justify-between text-right transition">
+          <div class="flex items-center justify-between gap-1 flex-row-reverse">
+            <span id="gameTeam2Name" class="font-bold text-violet-300 text-xs sm:text-sm truncate">Team 2</span>
+            <span id="gameTeam2Badge" class="hidden text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-violet-400 text-slate-950">Turn</span>
+          </div>
+          <div id="gameTeam2Score" class="text-2xl sm:text-4xl font-black text-white mt-1">0</div>
+        </div>
+      </div>
+
+      <!-- Active Turn Banner -->
+      <div id="turnBanner" class="rounded-2xl px-4 py-3 border flex flex-col sm:flex-row items-center justify-between gap-2 bg-slate-900 border-slate-800">
+        <div class="flex items-center gap-2.5 text-center sm:text-left">
+          <span id="turnTeamPill" class="text-xs font-extrabold uppercase px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300">Team 1</span>
+          <span class="text-sm sm:text-base font-bold text-white">
+            Active Player: <span id="activePlayerName" class="text-amber-300">—</span>
+          </span>
+        </div>
+        <div id="turnRoleHint" class="text-xs font-medium text-slate-400">Turn #1</div>
+      </div>
+
+      <!-- Main Board + Sidebar -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        <!-- Center: 7-Letter Hive & Input -->
+        <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 space-y-5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-400">Letters can be repeated • Middle circled letter is mandatory</span>
+            <button id="shuffleLettersBtn" type="button" class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition">↻ Shuffle</button>
+          </div>
+
+          <!-- 7-Letter Layout: 6 outer + 1 circled middle -->
+          <div class="flex flex-col items-center justify-center py-2">
+            <div class="grid grid-cols-3 gap-3 sm:gap-4 items-center justify-items-center max-w-xs w-full">
+              <button type="button" data-letter-idx="0" class="hex-tile outer-tile w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-2xl sm:text-3xl font-black text-white flex items-center justify-center"></button>
+              <button type="button" data-letter-idx="1" class="hex-tile outer-tile w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-2xl sm:text-3xl font-black text-white flex items-center justify-center"></button>
+              <button type="button" data-letter-idx="2" class="hex-tile outer-tile w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-2xl sm:text-3xl font-black text-white flex items-center justify-center"></button>
+
+              <button type="button" data-letter-idx="4" class="hex-tile outer-tile w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-2xl sm:text-3xl font-black text-white flex items-center justify-center"></button>
+              <!-- Circled Mandatory Center Letter -->
+              <button type="button" data-letter-idx="3" class="hex-tile center-tile center-ring-pulse w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-amber-400 hover:bg-amber-300 border-4 border-amber-200 text-3xl sm:text-4xl font-black text-slate-950 flex flex-col items-center justify-center relative" title="Mandatory Circled Letter">
+                <span id="centerLetterChar">?</span>
+                <span class="text-[9px] font-extrabold uppercase tracking-widest text-slate-900/80 -mt-1">Must Use</span>
+              </button>
+              <button type="button" data-letter-idx="5" class="hex-tile outer-tile w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-2xl sm:text-3xl font-black text-white flex items-center justify-center"></button>
+
+              <div></div>
+              <button type="button" data-letter-idx="6" class="hex-tile outer-tile w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-2xl sm:text-3xl font-black text-white flex items-center justify-center"></button>
+              <div></div>
+            </div>
+          </div>
+
+          <!-- Word Input Form -->
+          <form id="wordForm" class="space-y-3">
+            <div class="flex gap-2">
+              <input id="wordInput" type="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="Type 3+ letter word..." class="flex-1 px-4 py-3 rounded-xl bg-slate-950 border-2 border-slate-700 focus:border-amber-400 text-lg sm:text-xl font-extrabold uppercase tracking-widest text-white placeholder-slate-600 focus:outline-none disabled:opacity-50" />
+              <button id="submitWordBtn" type="submit" class="px-5 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-slate-950 font-extrabold text-sm sm:text-base transition shrink-0">
+                Submit
+              </button>
+            </div>
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex gap-2">
+                <button id="backspaceBtn" type="button" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition">⌫ Delete</button>
+                <button id="clearWordBtn" type="button" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition">Clear</button>
+              </div>
+              <div id="liveWordPreview" class="text-xs font-semibold text-slate-400"></div>
+            </div>
+            <div id="validationFeedback" class="min-h-[20px] text-xs font-semibold"></div>
+          </form>
+
+          <!-- Host Controls (only visible to Host / Demo) -->
+          <div id="hostControlsBar" class="hidden pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
+            <div class="flex flex-wrap gap-2">
+              <button id="pauseBtn" type="button" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition">⏸ Pause</button>
+              <button id="skipTurnBtn" type="button" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition">⏭ Skip Turn</button>
+              <button id="newLettersBtn" type="button" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 transition">🎲 New 7 Letters</button>
+            </div>
+            <button id="endGameBtn" type="button" class="text-xs font-bold px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white transition">Finish &amp; Show Winner</button>
+          </div>
+        </div>
+
+        <!-- Right Sidebar: Word Feed + Up Next -->
+        <div class="lg:col-span-5 space-y-4">
+          <!-- Up Next Queue -->
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2.5">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Rotation Queue (Next Up)</h3>
+            <div id="upNextList" class="space-y-1.5 text-xs"></div>
+          </div>
+
+          <!-- Played Words Log -->
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Played Words</h3>
+              <span id="wordCountBadge" class="text-xs font-bold text-slate-300">0 words</span>
+            </div>
+            <div id="wordHistoryList" class="space-y-2 max-h-72 overflow-y-auto custom-scroll pr-1">
+              <p class="text-xs text-slate-500 italic">No words played yet. First turn is live!</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 5: GAME OVER PODIUM ==================== -->
+    <section id="resultsView" class="hidden max-w-2xl mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 text-center space-y-6">
+      <div class="space-y-2">
+        <div class="text-4xl">🏆</div>
+        <h2 id="winnerTitle" class="text-2xl sm:text-3xl font-black text-white">Team 1 Wins!</h2>
+        <p id="winnerSubtitle" class="text-sm text-slate-400"></p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div class="bg-slate-950 border border-sky-500/30 rounded-xl p-4">
+          <div id="resTeam1Name" class="text-xs font-bold text-sky-300">Team 1</div>
+          <div id="resTeam1Score" class="text-3xl font-black text-white mt-1">0</div>
+        </div>
+        <div class="bg-slate-950 border border-violet-500/30 rounded-xl p-4">
+          <div id="resTeam2Name" class="text-xs font-bold text-violet-300">Team 2</div>
+          <div id="resTeam2Score" class="text-3xl font-black text-white mt-1">0</div>
+        </div>
+      </div>
+
+      <div id="awardsBox" class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left"></div>
+
+      <div class="flex flex-wrap justify-center gap-3 pt-2">
+        <button id="playAgainBtn" type="button" class="px-6 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-sm transition">Play Again (New Letters)</button>
+        <button id="backToHomeBtn" type="button" class="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm transition">Back to Home</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Rules Modal -->
+  <div id="rulesModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-extrabold text-white">How CenterCircle 7 Works</h3>
+        <button id="closeRulesBtn" type="button" class="text-slate-400 hover:text-white text-xl leading-none">&times;</button>
+      </div>
+      <ul class="space-y-2 text-xs sm:text-sm text-slate-300">
+        <li>• <strong>2 Teams (13+ Players Each):</strong> Everyone joins individually on their device into Team 1 or Team 2.</li>
+        <li>• <strong>7 Letters + Circled Center:</strong> Every word must use <em>only</em> the 7 shown letters (you may repeat letters as many times as needed, even 10+ letter words) and <strong>must include the circled middle letter</strong>.</li>
+        <li>• <strong>Minimum Length:</strong> Words must be at least <strong>3 letters</strong> long (no 2-letter words).</li>
+        <li>• <strong>No Proper Nouns:</strong> Names of people, cities, or brands are not allowed.</li>
+        <li>• <strong>Alternating Individual Turns:</strong> Turns alternate Team 1 → Team 2 → Team 1 → Team 2, rotating through a <em>different player</em> each time.</li>
+        <li>• <strong>15-Second Clock:</strong> If time runs out, the turn passes to the next player on the other team.</li>
+        <li>• <strong>Scoring:</strong> 3–5 letters = <strong>1 pt</strong>; 6+ letters = <strong>+1 pt per extra letter above 5</strong> (6 letters = 2 pts, 7 = 3 pts, 8 = 4 pts, etc.).</li>
+      </ul>
+      <button id="closeRulesBtn2" type="button" class="w-full py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-sm">Got it</button>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      // ==================== CURATED HIGH-YIELD 7-LETTER SETS ====================
+      // Index 3 is the mandatory circled center letter.
+      const LETTER_SETS = [
+        ['T','A','R','E','S','N','L'],
+        ['P','A','I','N','T','S','R'],
+        ['C','O','M','E','S','T','R'],
+        ['B','R','E','A','D','S','L'],
+        ['G','R','A','N','T','E','S'],
+        ['M','A','S','T','E','R','I'],
+        ['P','L','A','N','E','T','S'],
+        ['C','H','A','R','T','E','S'],
+        ['S','T','R','A','I','N','E'],
+        ['F','L','O','W','E','R','S'],
+        ['D','E','A','L','I','N','G'],
+        ['C','R','E','A','T','O','N'],
+        ['W','O','N','D','E','R','S'],
+        ['B','L','A','S','T','E','R'],
+        ['P','R','I','N','T','E','D'],
+        ['S','H','A','R','I','N','G']
+      ];
+
+      // Proper-noun / brand / name blocklist (lowercase)
+      const PROPER_NOUNS = new Set([
+        'india','madurai','chennai','delhi','mumbai','london','paris','tokyo','america','europe','asia',
+        'google','apple','amazon','meta','tesla','nike','adidas','sony','samsung','microsoft','toyota',
+        'aarav','priya','rahul','rohan','ananya','karthik','divya','sumit','ravinder','linda','john',
+        'mary','james','david','sarah','alex','emma','noah','liam','olivia','monday','tuesday',
+        'wednesday','thursday','friday','saturday','sunday','january','february','march','april',
+        'august','september','october','november','december','hcl','techbee','experis','pearson'
+      ]);
+
+      const DEMO_NAMES_1 = ['Aarav','Diya','Karthik','Sneha','Vikram','Meera','Rohan','Ananya','Pranav','Kavya','Siddharth','Nisha','Arjun'];
+      const DEMO_NAMES_2 = ['Aditya','Pooja','Varun','Shreya','Nikhil','Tanvi','Harish','Ishita','Gaurav','Riya','Manish','Swati','Deepak'];
+
+      // ==================== AUDIO SYNTHESIZER ====================
+      const AudioFX = (() => {
+        let ctx = null;
+        let muted = false;
+        function ensureCtx() {
+          if (muted) return null;
+          if (!ctx) {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (AC) ctx = new AC();
+          }
+          if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
+          return ctx;
+        }
+        function tone(freq, dur, type = 'sine', vol = 0.12) {
+          const c = ensureCtx();
+          if (!c) return;
+          const osc = c.createOscillator();
+          const gain = c.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, c.currentTime);
+          gain.gain.setValueAtTime(vol, c.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
+          osc.connect(gain);
+          gain.connect(c.destination);
+          osc.start();
+          osc.stop(c.currentTime + dur);
+        }
+        return {
+          toggleMute() { muted = !muted; return muted; },
+          isMuted() { return muted; },
+          tick() { tone(720, 0.06, 'triangle', 0.07); },
+          success() { tone(523.25, 0.12, 'sine', 0.14); setTimeout(() => tone(659.25, 0.18, 'sine', 0.14), 90); },
+          error() { tone(210, 0.22, 'sawtooth', 0.1); },
+          timeout() { tone(180, 0.35, 'sawtooth', 0.12); }
+        };
+      })();
+
+      // ==================== APP STATE ====================
+      const state = {
+        role: null, // 'host' | 'player' | 'demo'
+        roomCode: '',
+        myPlayerId: '',
+        myName: '',
+        myTeam: 1,
+        phase: 'landing', // 'landing' | 'lobby' | 'waiting' | 'playing' | 'results'
+        team1Name: 'Team 1',
+        team2Name: 'Team 2',
+        turnDuration: 15,
+        dictMode: 'auto',
+        team1: [], // { id, name, score, wordsCount, peerId }
+        team2: [],
+        scores: { 1: 0, 2: 0 },
+        letters: ['T','A','R','E','S','N','L'], // index 3 is center
+        outerOrder: [0, 1, 2, 4, 5, 6],
+        currentTeam: 1,
+        team1Ptr: 0,
+        team2Ptr: 0,
+        turnNumber: 1,
+        activePlayerId: null,
+        timeLeft: 15,
+        paused: false,
+        usedWords: [], // { word, points, playerId, playerName, team, length }
+        timerInterval: null,
+        peer: null,
+        hostConn: null,
+        clientConns: {},
+        bc: null
+      };
+
+      // ==================== DOM HELPERS ====================
+      const $ = (id) => document.getElementById(id);
+      function showToast(msg, type = 'info') {
+        const colors = {
+          info: 'bg-slate-800 border-slate-600 text-slate-100',
+          success: 'bg-emerald-900/90 border-emerald-500 text-emerald-100',
+          error: 'bg-rose-900/90 border-rose-500 text-rose-100',
+          warn: 'bg-amber-900/90 border-amber-500 text-amber-100'
+        };
+        const el = document.createElement('div');
+        el.className = `pop-in pointer-events-auto px-3.5 py-2.5 rounded-xl border text-xs font-semibold shadow-xl ${colors[type] || colors.info}`;
+        el.textContent = msg;
+        $('toastContainer').appendChild(el);
+        setTimeout(() => el.remove(), 3400);
+      }
+
+      function switchView(viewId) {
+        ['landingView', 'lobbyView', 'playerWaitView', 'gameView', 'resultsView'].forEach(v => {
+          $(v).classList.toggle('hidden', v !== viewId);
+        });
+        $('leaveBtn').classList.toggle('hidden', viewId === 'landingView');
+      }
+
+      function genCode(len = 5) {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let out = '';
+        for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
+        return out;
+      }
+
+      function genId() {
+        return 'p_' + Math.random().toString(36).slice(2, 9);
+      }
+
+      function pickNewLetters() {
+        const set = LETTER_SETS[Math.floor(Math.random() * LETTER_SETS.length)];
+        state.letters = [...set];
+        state.outerOrder = [0, 1, 2, 4, 5, 6];
+        state.usedWords = [];
+      }
+
+      function scoreWord(word) {
+        const len = word.length;
+        if (len < 3) return 0;
+        if (len <= 5) return 1;
+        return 1 + (len - 5);
+      }
+
+      // ==================== NETWORKING (PeerJS + BroadcastChannel) ====================
+      function initBroadcastChannel(roomCode) {
+        try {
+          if (state.bc) state.bc.close();
+          state.bc = new BroadcastChannel('centercircle_' + roomCode);
+          state.bc.onmessage = (ev) => handleIncomingMessage(ev.data, 'bc');
+        } catch (_) {}
+      }
+
+      function broadcastState() {
+        const snapshot = {
+          type: 'STATE_SYNC',
+          payload: {
+            phase: state.phase,
+            team1Name: state.team1Name,
+            team2Name: state.team2Name,
+            turnDuration: state.turnDuration,
+            team1: state.team1,
+            team2: state.team2,
+            scores: state.scores,
+            letters: state.letters,
+            currentTeam: state.currentTeam,
+            team1Ptr: state.team1Ptr,
+            team2Ptr: state.team2Ptr,
+            turnNumber: state.turnNumber,
+            activePlayerId: state.activePlayerId,
+            timeLeft: state.timeLeft,
+            paused: state.paused,
+            usedWords: state.usedWords
+          }
+        };
+        Object.values(state.clientConns).forEach(conn => {
+          try { if (conn.open) conn.send(snapshot); } catch (_) {}
+        });
+        try { if (state.bc) state.bc.postMessage(snapshot); } catch (_) {}
+      }
+
+      function sendToHost(msg) {
+        if (state.hostConn && state.hostConn.open) {
+          try { state.hostConn.send(msg); } catch (_) {}
+        }
+        try { if (state.bc) state.bc.postMessage(msg); } catch (_) {}
+      }
+
+      function handleIncomingMessage(msg, source, conn = null) {
+        if (!msg || !msg.type) return;
+
+        if (state.role === 'host') {
+          if (msg.type === 'JOIN_REQUEST') {
+            const { playerId, name, team } = msg.payload;
+            addPlayerToRoster(playerId, name, team, conn);
+            broadcastState();
+            renderLobby();
+          } else if (msg.type === 'SUBMIT_WORD') {
+            const { playerId, word } = msg.payload;
+            if (playerId === state.activePlayerId && state.phase === 'playing' && !state.paused) {
+              processWordSubmission(word, playerId);
+            }
+          }
+        } else if (state.role === 'player') {
+          if (msg.type === 'STATE_SYNC') {
+            applyRemoteState(msg.payload);
+          } else if (msg.type === 'TURN_FEEDBACK') {
+            if (msg.payload.ok) {
+              AudioFX.success();
+            } else {
+              AudioFX.error();
+            }
+            if (msg.payload.message) {
+              showToast(msg.payload.message, msg.payload.ok ? 'success' : 'error');
+            }
+          }
+        }
+      }
+
+      function applyRemoteState(p) {
+        const prevPhase = state.phase;
+        Object.assign(state, p);
+        if (state.phase === 'lobby') {
+          switchView('playerWaitView');
+          const tName = state.myTeam === 1 ? state.team1Name : state.team2Name;
+          $('playerWaitInfo').textContent = `Joined as ${state.myName} on ${tName}.`;
+        } else if (state.phase === 'playing') {
+          if (prevPhase !== 'playing') showToast('Game started!', 'success');
+          switchView('gameView');
+          renderGame();
+        } else if (state.phase === 'results') {
+          switchView('resultsView');
+          renderResults();
+        }
+      }
+
+      // ==================== HOST SETUP ====================
+      function startHostLobby() {
+        state.role = 'host';
+        state.roomCode = genCode(5);
+        state.phase = 'lobby';
+        state.team1 = [];
+        state.team2 = [];
+        state.scores = { 1: 0, 2: 0 };
+        pickNewLetters();
+
+        switchView('lobbyView');
+        $('lobbyRoomCode').textContent = state.roomCode;
+        $('connectionBadge').textContent = `HOST • ${state.roomCode}`;
+        $('connectionBadge').classList.remove('hidden');
+
+        initBroadcastChannel(state.roomCode);
+        renderQRCode();
+        renderLobby();
+
+        try {
+          if (typeof Peer !== 'undefined') {
+            state.peer = new Peer('cc7-' + state.roomCode);
+            state.peer.on('open', () => {
+              $('hostNetStatus').textContent = 'Live online — players can join from any device!';
+              $('hostNetStatus').className = 'text-xs text-emerald-400 font-medium';
+            });
+            state.peer.on('connection', (conn) => {
+              conn.on('data', (data) => handleIncomingMessage(data, 'peer', conn));
+              conn.on('open', () => {
+                // Wait for JOIN_REQUEST
+              });
+            });
+            state.peer.on('error', () => {
+              $('hostNetStatus').textContent = 'Local/Same-browser mode active (or use 13v13 Demo).';
+              $('hostNetStatus').className = 'text-xs text-amber-300 font-medium';
+            });
+          } else {
+            $('hostNetStatus').textContent = 'Local mode active.';
+          }
+        } catch (_) {
+          $('hostNetStatus').textContent = 'Local mode active.';
+        }
+      }
+
+      function renderQRCode() {
+        const box = $('qrBox');
+        box.innerHTML = '';
+        const joinUrl = `${location.href.split('?')[0]}?room=${state.roomCode}`;
+        try {
+          if (typeof QRCode !== 'undefined') {
+            new QRCode(box, { text: joinUrl, width: 88, height: 88, colorDark: '#0f172a', colorLight: '#ffffff' });
+          }
+        } catch (_) {}
+      }
+
+      function addPlayerToRoster(id, name, team, conn = null) {
+        const cleanName = (name || 'Player').trim().slice(0, 20);
+        // Remove if already present
+        state.team1 = state.team1.filter(p => p.id !== id);
+        state.team2 = state.team2.filter(p => p.id !== id);
+        const player = { id, name: cleanName, score: 0, wordsCount: 0 };
+        if (team === 1) state.team1.push(player);
+        else state.team2.push(player);
+        if (conn) state.clientConns[id] = conn;
+      }
+
+      function fillTo13PerTeam() {
+        for (let i = state.team1.length; i < 13; i++) {
+          const name = DEMO_NAMES_1[i] || `T1-Player ${i + 1}`;
+          addPlayerToRoster(genId(), name, 1);
+        }
+        for (let i = state.team2.length; i < 13; i++) {
+          const name = DEMO_NAMES_2[i] || `T2-Player ${i + 1}`;
+          addPlayerToRoster(genId(), name, 2);
+        }
+        broadcastState();
+        renderLobby();
+        showToast('Populated 13 players on each team!', 'success');
+      }
+
+      function renderLobby() {
+        state.team1Name = $('team1NameInput').value.trim() || 'Team 1';
+        state.team2Name = $('team2NameInput').value.trim() || 'Team 2';
+        $('lobbyTeam1Title').textContent = state.team1Name;
+        $('lobbyTeam2Title').textContent = state.team2Name;
+        $('lobbyTeam1Count').textContent = `${state.team1.length} joined`;
+        $('lobbyTeam2Count').textContent = `${state.team2.length} joined`;
+
+        const renderList = (arr, elId, colorCls) => {
+          const el = $(elId);
+          if (arr.length === 0) {
+            el.innerHTML = `<p class="text-xs text-slate-500 italic">Waiting for participants to join...</p>`;
+            return;
+          }
+          el.innerHTML = arr.map((p, idx) => `
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold ${colorCls}">
+              <span class="opacity-60">${idx + 1}.</span> ${escapeHtml(p.name)}
+              <button type="button" data-remove-id="${p.id}" class="ml-1 opacity-60 hover:opacity-100">&times;</button>
+            </span>
+          `).join('');
+        };
+
+        renderList(state.team1, 'lobbyTeam1List', 'bg-sky-500/15 text-sky-200 border border-sky-500/30');
+        renderList(state.team2, 'lobbyTeam2List', 'bg-violet-500/15 text-violet-200 border border-violet-500/30');
+      }
+
+      function escapeHtml(str) {
+        return String(str).replace(/[&<>"']/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[s]));
+      }
+
+      // ==================== PLAYER JOIN ====================
+      function joinAsPlayer() {
+        const name = $('joinNameInput').value.trim();
+        const code = $('joinCodeInput').value.trim().toUpperCase();
+        if (!name) return showToast('Please enter your name.', 'warn');
+        if (!code || code.length < 4) return showToast('Please enter a valid room code.', 'warn');
+
+        state.role = 'player';
+        state.myPlayerId = genId();
+        state.myName = name;
+        state.roomCode = code;
+        state.phase = 'waiting';
+
+        $('connectionBadge').textContent = `${name} • Team ${state.myTeam}`;
+        $('connectionBadge').classList.remove('hidden');
+        $('playerWaitInfo').textContent = `Connecting to room ${code} as ${name} (Team ${state.myTeam})...`;
+        switchView('playerWaitView');
+
+        initBroadcastChannel(code);
+        sendToHost({ type: 'JOIN_REQUEST', payload: { playerId: state.myPlayerId, name, team: state.myTeam } });
+
+        try {
+          if (typeof Peer !== 'undefined') {
+            state.peer = new Peer();
+            state.peer.on('open', () => {
+              const conn = state.peer.connect('cc7-' + code);
+              state.hostConn = conn;
+              conn.on('open', () => {
+                $('playerWaitInfo').textContent = `Connected to Room ${code} as ${name} (Team ${state.myTeam}). Waiting for host to start!`;
+                conn.send({ type: 'JOIN_REQUEST', payload: { playerId: state.myPlayerId, name, team: state.myTeam } });
+              });
+              conn.on('data', (data) => handleIncomingMessage(data, 'peer'));
+              conn.on('error', () => showToast('Could not reach host via PeerJS; using local channel if same device.', 'warn'));
+            });
+          }
+        } catch (_) {}
+      }
+
+      // ==================== GAMEPLAY ENGINE ====================
+      function startGameFromHost() {
+        if (state.team1.length === 0 || state.team2.length === 0) {
+          return showToast('Both teams need at least 1 player (click "+ Fill to 13/Team" to test).', 'warn');
+        }
+        state.team1Name = $('team1NameInput').value.trim() || 'Team 1';
+        state.team2Name = $('team2NameInput').value.trim() || 'Team 2';
+        state.turnDuration = Math.max(5, Math.min(60, parseInt($('timerSettingInput').value, 10) || 15));
+        state.dictMode = $('dictModeSelect').value;
+
+        state.scores = { 1: 0, 2: 0 };
+        state.team1.forEach(p => { p.score = 0; p.wordsCount = 0; });
+        state.team2.forEach(p => { p.score = 0; p.wordsCount = 0; });
+        state.currentTeam = 1;
+        state.team1Ptr = 0;
+        state.team2Ptr = 0;
+        state.turnNumber = 1;
+        state.paused = false;
+        pickNewLetters();
+
+        state.phase = 'playing';
+        assignActivePlayer();
+        switchView('gameView');
+        startTurnTimer();
+        renderGame();
+        broadcastState();
+      }
+
+      function launchQuickDemo() {
+        state.role = 'demo';
+        state.roomCode = 'DEMO';
+        state.team1Name = 'Team 1';
+        state.team2Name = 'Team 2';
+        state.turnDuration = 15;
+        state.dictMode = 'auto';
+        state.team1 = DEMO_NAMES_1.map(n => ({ id: genId(), name: n, score: 0, wordsCount: 0 }));
+        state.team2 = DEMO_NAMES_2.map(n => ({ id: genId(), name: n, score: 0, wordsCount: 0 }));
+        state.scores = { 1: 0, 2: 0 };
+        state.currentTeam = 1;
+        state.team1Ptr = 0;
+        state.team2Ptr = 0;
+        state.turnNumber = 1;
+        state.paused = false;
+        pickNewLetters();
+
+        state.phase = 'playing';
+        $('connectionBadge').textContent = '13v13 DEMO MODE';
+        $('connectionBadge').classList.remove('hidden');
+        assignActivePlayer();
+        switchView('gameView');
+        startTurnTimer();
+        renderGame();
+        showToast('13v13 Classroom Demo started! Type on behalf of each active player.', 'success');
+      }
+
+      function assignActivePlayer() {
+        if (state.currentTeam === 1) {
+          const idx = state.team1Ptr % state.team1.length;
+          state.activePlayerId = state.team1[idx].id;
+        } else {
+          const idx = state.team2Ptr % state.team2.length;
+          state.activePlayerId = state.team2[idx].id;
+        }
+        state.timeLeft = state.turnDuration;
+      }
+
+      function advanceTurn() {
+        // Advance pointer of the team that just went, then swap team
+        if (state.currentTeam === 1) {
+          state.team1Ptr = (state.team1Ptr + 1) % state.team1.length;
+          state.currentTeam = 2;
+        } else {
+          state.team2Ptr = (state.team2Ptr + 1) % state.team2.length;
+          state.currentTeam = 1;
+        }
+        state.turnNumber += 1;
+        assignActivePlayer();
+        $('wordInput').value = '';
+        $('validationFeedback').textContent = '';
+        renderGame();
+        broadcastState();
+      }
+
+      function startTurnTimer() {
+        if (state.timerInterval) clearInterval(state.timerInterval);
+        state.timerInterval = setInterval(() => {
+          if (state.phase !== 'playing' || state.paused) return;
+          state.timeLeft -= 1;
+          if (state.timeLeft <= 5 && state.timeLeft > 0) AudioFX.tick();
+
+          if (state.timeLeft <= 0) {
+            AudioFX.timeout();
+            const active = getPlayerById(state.activePlayerId);
+            showToast(`Time's up for ${active ? active.name : 'player'}! Next team's turn.`, 'warn');
+            advanceTurn();
+          } else {
+            updateTimerUI();
+            broadcastState();
+          }
+        }, 1000);
+      }
+
+      function getPlayerById(id) {
+        return state.team1.find(p => p.id === id) || state.team2.find(p => p.id === id) || null;
+      }
+
+      // ==================== WORD VALIDATION ====================
+      async function checkDictionary(wordLower) {
+        if (state.dictMode === 'host') return { valid: true };
+        if (PROPER_NOUNS.has(wordLower)) {
+          return { valid: false, reason: 'Proper nouns (names/brands) are not allowed.' };
+        }
+        try {
+          const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(wordLower)}`);
+          if (res.ok) return { valid: true };
+          if (res.status === 404) return { valid: false, reason: `"${wordLower.toUpperCase()}" was not found in the English dictionary.` };
+        } catch (_) {
+          // Offline / CORS fallback: accept structurally valid words if API unreachable
+          return { valid: true, offlineFallback: true };
+        }
+        return { valid: true };
+      }
+
+      async function processWordSubmission(rawWord, submitterId) {
+        const word = (rawWord || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+        const feedback = $('validationFeedback');
+
+        if (word.length < 3) {
+          AudioFX.error();
+          return setFeedback('Word must be at least 3 letters (no 2-letter words).', false, submitterId);
+        }
+
+        const centerChar = state.letters[3];
+        if (!word.includes(centerChar)) {
+          AudioFX.error();
+          return setFeedback(`Word must include the circled center letter "${centerChar}".`, false, submitterId);
+        }
+
+        const allowedSet = new Set(state.letters);
+        for (const ch of word) {
+          if (!allowedSet.has(ch)) {
+            AudioFX.error();
+            return setFeedback(`Invalid letter "${ch}". Use only the 7 given letters!`, false, submitterId);
+          }
+        }
+
+        if (state.usedWords.some(w => w.word === word)) {
+          AudioFX.error();
+          return setFeedback(`"${word}" has already been played!`, false, submitterId);
+        }
+
+        // Disable submit briefly during async dictionary check
+        $('submitWordBtn').disabled = true;
+        feedback.textContent = 'Checking word...';
+        feedback.className = 'min-h-[20px] text-xs font-semibold text-slate-400';
+
+        const dictRes = await checkDictionary(word.toLowerCase());
+        $('submitWordBtn').disabled = false;
+
+        if (!dictRes.valid) {
+          AudioFX.error();
+          return setFeedback(dictRes.reason, false, submitterId);
+        }
+
+        // Valid Word! Award Points
+        const pts = scoreWord(word);
+        const player = getPlayerById(submitterId);
+        const teamNum = state.currentTeam;
+        state.scores[teamNum] += pts;
+        if (player) {
+          player.score += pts;
+          player.wordsCount += 1;
+        }
+        state.usedWords.unshift({
+          word,
+          points: pts,
+          length: word.length,
+          playerId: submitterId,
+          playerName: player ? player.name : 'Player',
+          team: teamNum
+        });
+
+        AudioFX.success();
+        const msg = `+${pts} pt${pts > 1 ? 's' : ''} for "${word}" (${word.length} letters)!`;
+        showToast(msg, 'success');
+        sendTurnFeedback(submitterId, true, msg);
+        advanceTurn();
+      }
+
+      function setFeedback(msg, ok, targetId) {
+        const fb = $('validationFeedback');
+        fb.textContent = msg;
+        fb.className = `min-h-[20px] text-xs font-semibold ${ok ? 'text-emerald-400' : 'text-rose-400'}`;
+        sendTurnFeedback(targetId, ok, msg);
+      }
+
+      function sendTurnFeedback(playerId, ok, message) {
+        const conn = state.clientConns[playerId];
+        if (conn && conn.open) {
+          try { conn.send({ type: 'TURN_FEEDBACK', payload: { ok, message } }); } catch (_) {}
+        }
+        try { if (state.bc) state.bc.postMessage({ type: 'TURN_FEEDBACK', payload: { ok, message } }); } catch (_) {}
+      }
+
+      // ==================== RENDERING ====================
+      function updateTimerUI() {
+        const t = Math.max(0, state.timeLeft);
+        const pct = Math.max(0, Math.min(100, (t / state.turnDuration) * 100));
+        const disp = $('timerDisplay');
+        const bar = $('timerBar');
+        disp.textContent = `${t}s`;
+        bar.style.width = `${pct}%`;
+
+        if (t <= 5) {
+          disp.className = 'text-3xl sm:text-4xl font-black text-rose-400 tabular-nums mt-0.5';
+          bar.className = 'bg-rose-500 h-full transition-all duration-300';
+        } else if (t <= 9) {
+          disp.className = 'text-3xl sm:text-4xl font-black text-amber-400 tabular-nums mt-0.5';
+          bar.className = 'bg-amber-400 h-full transition-all duration-300';
+        } else {
+          disp.className = 'text-3xl sm:text-4xl font-black text-emerald-400 tabular-nums mt-0.5';
+          bar.className = 'bg-emerald-400 h-full transition-all duration-300';
+        }
+      }
+
+      function renderGame() {
+        $('gameTeam1Name').textContent = state.team1Name;
+        $('gameTeam2Name').textContent = state.team2Name;
+        $('gameTeam1Score').textContent = state.scores[1];
+        $('gameTeam2Score').textContent = state.scores[2];
+
+        const t1Active = state.currentTeam === 1;
+        $('gameTeam1Badge').classList.toggle('hidden', !t1Active);
+        $('gameTeam2Badge').classList.toggle('hidden', t1Active);
+        $('scoreCard1').className = `bg-slate-900 border-2 rounded-2xl p-3 sm:p-4 flex flex-col justify-between transition ${t1Active ? 'border-sky-400 shadow-lg shadow-sky-500/10' : 'border-slate-800 opacity-80'}`;
+        $('scoreCard2').className = `bg-slate-900 border-2 rounded-2xl p-3 sm:p-4 flex flex-col justify-between text-right transition ${!t1Active ? 'border-violet-400 shadow-lg shadow-violet-500/10' : 'border-slate-800 opacity-80'}`;
+
+        updateTimerUI();
+
+        // Active Player & Turn Banner
+        const activePlayer = getPlayerById(state.activePlayerId);
+        $('activePlayerName').textContent = activePlayer ? activePlayer.name : '—';
+        const pill = $('turnTeamPill');
+        pill.textContent = t1Active ? state.team1Name : state.team2Name;
+        pill.className = `text-xs font-extrabold uppercase px-2.5 py-1 rounded-lg ${t1Active ? 'bg-sky-500/20 text-sky-300' : 'bg-violet-500/20 text-violet-300'}`;
+        $('turnRoleHint').textContent = `Turn #${state.turnNumber}${state.paused ? ' • PAUSED' : ''}`;
+
+        // Can this device type?
+        const canType = (state.role === 'demo') ||
+          (state.role === 'host') ||
+          (state.role === 'player' && state.myPlayerId === state.activePlayerId);
+
+        const wordInput = $('wordInput');
+        wordInput.disabled = !canType || state.paused;
+        $('submitWordBtn').disabled = !canType || state.paused;
+        if (state.role === 'player') {
+          wordInput.placeholder = canType ? "IT'S YOUR TURN! Type word..." : `Waiting for ${activePlayer ? activePlayer.name : 'player'}...`;
+        } else {
+          wordInput.placeholder = `Type word for ${activePlayer ? activePlayer.name : 'active player'}...`;
+        }
+
+        $('hostControlsBar').classList.toggle('hidden', state.role === 'player');
+        $('pauseBtn').textContent = state.paused ? '▶ Resume' : '⏸ Pause';
+
+        // Render 7 Letters (center is index 3, outer tiles mapped via outerOrder)
+        $('centerLetterChar').textContent = state.letters[3];
+        const outerBtns = document.querySelectorAll('.outer-tile');
+        outerBtns.forEach((btn, i) => {
+          const letterIdx = state.outerOrder[i];
+          btn.textContent = state.letters[letterIdx];
+          btn.dataset.char = state.letters[letterIdx];
+        });
+        document.querySelector('.center-tile').dataset.char = state.letters[3];
+
+        // Up Next Queue (next 4 turns alternating)
+        const queue = [];
+        let simTeam = state.currentTeam;
+        let p1 = state.team1Ptr;
+        let p2 = state.team2Ptr;
+        for (let step = 0; step < 4; step++) {
+          if (simTeam === 1) {
+            const pl = state.team1[p1 % state.team1.length];
+            if (pl) queue.push({ team: 1, tName: state.team1Name, pName: pl.name, now: step === 0 });
+            p1++;
+            simTeam = 2;
+          } else {
+            const pl = state.team2[p2 % state.team2.length];
+            if (pl) queue.push({ team: 2, tName: state.team2Name, pName: pl.name, now: step === 0 });
+            p2++;
+            simTeam = 1;
+          }
+        }
+        $('upNextList').innerHTML = queue.map(q => `
+          <div class="flex items-center justify-between px-2.5 py-1.5 rounded-lg ${q.now ? 'bg-amber-500/15 border border-amber-400/30' : 'bg-slate-950/70 border border-slate-800'}">
+            <span class="font-semibold ${q.team === 1 ? 'text-sky-300' : 'text-violet-300'}">${escapeHtml(q.pName)}</span>
+            <span class="text-[11px] text-slate-400">${escapeHtml(q.tName)} ${q.now ? '• NOW' : ''}</span>
+          </div>
+        `).join('');
+
+        // Played Words
+        $('wordCountBadge').textContent = `${state.usedWords.length} word${state.usedWords.length === 1 ? '' : 's'}`;
+        if (state.usedWords.length === 0) {
+          $('wordHistoryList').innerHTML = `<p class="text-xs text-slate-500 italic">No words played yet. Make a 3+ letter word with "${state.letters[3]}"!</p>`;
+        } else {
+          $('wordHistoryList').innerHTML = state.usedWords.map(w => `
+            <div class="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs">
+              <div>
+                <span class="font-extrabold tracking-wider text-white text-sm">${escapeHtml(w.word)}</span>
+                <span class="text-slate-400 ml-2">by ${escapeHtml(w.playerName)} (${w.team === 1 ? escapeHtml(state.team1Name) : escapeHtml(state.team2Name)})</span>
+              </div>
+              <span class="font-extrabold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300">+${w.points}</span>
+            </div>
+          `).join('');
+        }
+      }
+
+      function renderResults() {
+        if (state.timerInterval) clearInterval(state.timerInterval);
+        const s1 = state.scores[1];
+        const s2 = state.scores[2];
+        $('resTeam1Name').textContent = state.team1Name;
+        $('resTeam2Name').textContent = state.team2Name;
+        $('resTeam1Score').textContent = s1;
+        $('resTeam2Score').textContent = s2;
+
+        if (s1 > s2) {
+          $('winnerTitle').textContent = `${state.team1Name} Wins!`;
+          $('winnerSubtitle').textContent = `Victory by ${s1 - s2} point${s1 - s2 === 1 ? '' : 's'} across ${state.usedWords.length} valid words.`;
+        } else if (s2 > s1) {
+          $('winnerTitle').textContent = `${state.team2Name} Wins!`;
+          $('winnerSubtitle').textContent = `Victory by ${s2 - s1} point${s2 - s1 === 1 ? '' : 's'} across ${state.usedWords.length} valid words.`;
+        } else {
+          $('winnerTitle').textContent = `It's a Tie!`;
+          $('winnerSubtitle').textContent = `Both teams finished level at ${s1} points!`;
+        }
+
+        const allPlayers = [...state.team1, ...state.team2].sort((a, b) => b.score - a.score);
+        const mvp = allPlayers[0];
+        const longest = [...state.usedWords].sort((a, b) => b.length - a.length)[0];
+
+        $('awardsBox').innerHTML = `
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-3.5">
+            <div class="text-[11px] uppercase tracking-wider text-amber-400 font-bold">Top Scorer (MVP)</div>
+            <div class="text-base font-extrabold text-white mt-0.5">${mvp && mvp.score > 0 ? `${escapeHtml(mvp.name)} (${mvp.score} pts)` : 'No points scored yet'}</div>
+          </div>
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-3.5">
+            <div class="text-[11px] uppercase tracking-wider text-emerald-400 font-bold">Longest Word</div>
+            <div class="text-base font-extrabold text-white mt-0.5">${longest ? `${escapeHtml(longest.word)} (${longest.length} letters, +${longest.points} pts)` : 'None yet'}</div>
+          </div>
+        `;
+      }
+
+      // ==================== EVENT LISTENERS ====================
+      $('createHostBtn').addEventListener('click', startHostLobby);
+      $('quickDemoBtn').addEventListener('click', launchQuickDemo);
+      $('joinRoomBtn').addEventListener('click', joinAsPlayer);
+      $('fill13Btn').addEventListener('click', fillTo13PerTeam);
+      $('startGameBtn').addEventListener('click', startGameFromHost);
+
+      document.querySelectorAll('.join-team-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.myTeam = parseInt(btn.dataset.joinTeam, 10);
+          document.querySelectorAll('.join-team-btn').forEach(b => {
+            const active = parseInt(b.dataset.joinTeam, 10) === state.myTeam;
+            b.className = active
+              ? 'join-team-btn py-2 rounded-lg text-xs font-bold border border-sky-500 bg-sky-500/20 text-sky-200 transition'
+              : 'join-team-btn py-2 rounded-lg text-xs font-bold border border-slate-700 bg-slate-950 text-slate-400 hover:text-white transition';
+          });
+        });
+      });
+
+      $('team1NameInput').addEventListener('input', renderLobby);
+      $('team2NameInput').addEventListener('input', renderLobby);
+
+      $('lobbyView').addEventListener('click', (e) => {
+        const rmId = e.target.dataset && e.target.dataset.removeId;
+        if (rmId) {
+          state.team1 = state.team1.filter(p => p.id !== rmId);
+          state.team2 = state.team2.filter(p => p.id !== rmId);
+          broadcastState();
+          renderLobby();
+        }
+      });
+
+      $('copyRoomLinkBtn').addEventListener('click', () => {
+        const url = `${location.href.split('?')[0]}?room=${state.roomCode}`;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(url).then(() => showToast('Join link copied!', 'success')).catch(() => fallbackCopy(url));
+        } else {
+          fallbackCopy(url);
+        }
+      });
+
+      function fallbackCopy(text) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); showToast('Join link copied!', 'success'); } catch (_) {}
+        ta.remove();
+      }
+
+      // Tile clicks type into input
+      document.querySelectorAll('.hex-tile').forEach(tile => {
+        tile.addEventListener('click', () => {
+          const inp = $('wordInput');
+          if (inp.disabled) return;
+          const ch = tile.dataset.char || '';
+          inp.value += ch;
+          updateLivePreview();
+          inp.focus();
+        });
+      });
+
+      $('backspaceBtn').addEventListener('click', () => {
+        const inp = $('wordInput');
+        if (inp.disabled) return;
+        inp.value = inp.value.slice(0, -1);
+        updateLivePreview();
+      });
+
+      $('clearWordBtn').addEventListener('click', () => {
+        const inp = $('wordInput');
+        if (inp.disabled) return;
+        inp.value = '';
+        updateLivePreview();
+      });
+
+      function updateLivePreview() {
+        const val = $('wordInput').value.trim().toUpperCase();
+        const pts = scoreWord(val);
+        $('liveWordPreview').textContent = val.length >= 3 ? `${val.length} letters = ${pts} pt${pts > 1 ? 's' : ''}` : (val.length > 0 ? `${val.length}/3 min` : '');
+      }
+
+      $('wordInput').addEventListener('input', updateLivePreview);
+
+      $('shuffleLettersBtn').addEventListener('click', () => {
+        for (let i = state.outerOrder.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [state.outerOrder[i], state.outerOrder[j]] = [state.outerOrder[j], state.outerOrder[i]];
+        }
+        renderGame();
+      });
+
+      $('wordForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const word = $('wordInput').value.trim();
+        if (!word) return;
+        if (state.role === 'player') {
+          sendToHost({ type: 'SUBMIT_WORD', payload: { playerId: state.myPlayerId, word } });
+          $('wordInput').value = '';
+        } else {
+          processWordSubmission(word, state.activePlayerId);
+        }
+      });
+
+      $('pauseBtn').addEventListener('click', () => {
+        state.paused = !state.paused;
+        renderGame();
+        broadcastState();
+      });
+
+      $('skipTurnBtn').addEventListener('click', () => {
+        showToast('Turn skipped by host.', 'info');
+        advanceTurn();
+      });
+
+      $('newLettersBtn').addEventListener('click', () => {
+        pickNewLetters();
+        state.timeLeft = state.turnDuration;
+        renderGame();
+        broadcastState();
+        showToast(`New 7 letters! Mandatory center: ${state.letters[3]}`, 'success');
+      });
+
+      $('endGameBtn').addEventListener('click', () => {
+        state.phase = 'results';
+        switchView('resultsView');
+        renderResults();
+        broadcastState();
+      });
+
+      $('playAgainBtn').addEventListener('click', () => {
+        if (state.role === 'demo') return launchQuickDemo();
+        if (state.role === 'host') return startGameFromHost();
+        switchView('playerWaitView');
+      });
+
+      $('backToHomeBtn').addEventListener('click', resetToHome);
+      $('leaveBtn').addEventListener('click', resetToHome);
+
+      function resetToHome() {
+        if (state.timerInterval) clearInterval(state.timerInterval);
+        if (state.peer) { try { state.peer.destroy(); } catch (_) {} state.peer = null; }
+        if (state.bc) { try { state.bc.close(); } catch (_) {} state.bc = null; }
+        state.role = null;
+        state.phase = 'landing';
+        $('connectionBadge').classList.add('hidden');
+        switchView('landingView');
+      }
+
+      // Rules Modal
+      $('rulesBtn').addEventListener('click', () => $('rulesModal').classList.remove('hidden'));
+      $('closeRulesBtn').addEventListener('click', () => $('rulesModal').classList.add('hidden'));
+      $('closeRulesBtn2').addEventListener('click', () => $('rulesModal').classList.add('hidden'));
+
+      $('muteBtn').addEventListener('click', () => {
+        const m = AudioFX.toggleMute();
+        $('muteBtn').textContent = m ? '🔇 Muted' : '🔊 Sound';
+      });
+
+      // Check URL ?room=XXXX
+      window.addEventListener('load', () => {
+        const params = new URLSearchParams(location.search);
+        const r = params.get('room');
+        if (r) {
+          $('joinCodeInput').value = r.toUpperCase();
+          $('joinNameInput').focus();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
